@@ -69,61 +69,16 @@ class Database {
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         );
 
-        -- 文章表（支持AI生成和手动创建）
-        CREATE TABLE IF NOT EXISTS articles (
+        -- 作者库表
+        CREATE TABLE IF NOT EXISTS authors (
             id BIGSERIAL PRIMARY KEY,
-            title VARCHAR(200) NOT NULL,
-            slug VARCHAR(200) UNIQUE NOT NULL,
-            excerpt TEXT DEFAULT '',
-            content TEXT NOT NULL,
-            category_id INTEGER NOT NULL,
-            author_id INTEGER DEFAULT 1,
-            task_id INTEGER DEFAULT NULL, -- 关联的任务ID，NULL表示手动创建
-            original_keyword VARCHAR(200) DEFAULT '', -- 原始关键词
-            keywords TEXT DEFAULT '', -- SEO关键词
-            meta_description TEXT DEFAULT '', -- SEO描述
-            status VARCHAR(20) DEFAULT 'draft', -- draft, published, private, deleted
-            review_status VARCHAR(20) DEFAULT 'pending', -- pending, approved, rejected, auto_approved
-            is_featured INTEGER DEFAULT 0,
-            view_count INTEGER DEFAULT 0,
-            like_count INTEGER DEFAULT 0,
-            comment_count INTEGER DEFAULT 0,
-            is_ai_generated INTEGER DEFAULT 0, -- 是否AI生成
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            published_at TIMESTAMP DEFAULT NULL,
-            deleted_at TIMESTAMP DEFAULT NULL,
-            FOREIGN KEY (category_id) REFERENCES categories(id),
-            FOREIGN KEY (author_id) REFERENCES authors(id),
-            FOREIGN KEY (task_id) REFERENCES tasks(id)
-        );
-
-        -- 文章标签关联表
-        CREATE TABLE IF NOT EXISTS article_tags (
-            id BIGSERIAL PRIMARY KEY,
-            article_id INTEGER NOT NULL,
-            tag_id INTEGER NOT NULL,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY (article_id) REFERENCES articles(id) ON DELETE CASCADE,
-            FOREIGN KEY (tag_id) REFERENCES tags(id) ON DELETE CASCADE,
-            UNIQUE(article_id, tag_id)
-        );
-
-        -- 评论表
-        CREATE TABLE IF NOT EXISTS comments (
-            id BIGSERIAL PRIMARY KEY,
-            article_id INTEGER NOT NULL,
-            parent_id INTEGER DEFAULT NULL,
-            author_name VARCHAR(100) NOT NULL,
-            author_email VARCHAR(100) NOT NULL,
-            author_website VARCHAR(200) DEFAULT '',
-            content TEXT NOT NULL,
-            status INTEGER DEFAULT 0, -- 0: 待审核, 1: 已通过, 2: 已拒绝
-            ip_address VARCHAR(45),
-            user_agent TEXT,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY (article_id) REFERENCES articles(id) ON DELETE CASCADE,
-            FOREIGN KEY (parent_id) REFERENCES comments(id) ON DELETE CASCADE
+            name VARCHAR(100) NOT NULL,
+            bio TEXT DEFAULT '',
+            email VARCHAR(100) DEFAULT '',
+            avatar VARCHAR(200) DEFAULT '',
+            website VARCHAR(200) DEFAULT '',
+            social_links TEXT DEFAULT '',
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         );
 
         -- 网站配置表
@@ -145,46 +100,7 @@ class Database {
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         );
 
-        -- 阅读日志表
-        CREATE TABLE IF NOT EXISTS view_logs (
-            id BIGSERIAL PRIMARY KEY,
-            article_id INTEGER,
-            ip_address VARCHAR(45),
-            user_agent TEXT,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY (article_id) REFERENCES articles(id)
-        );
-
         -- ========== AI内容生成系统相关表 ==========
-
-        -- 任务表
-        CREATE TABLE IF NOT EXISTS tasks (
-            id BIGSERIAL PRIMARY KEY,
-            name VARCHAR(200) NOT NULL,
-            title_library_id INTEGER NOT NULL,
-            image_library_id INTEGER DEFAULT NULL,
-            image_count INTEGER DEFAULT 0, -- 配图数量
-            prompt_id INTEGER NOT NULL, -- 内容提示词ID
-            ai_model_id INTEGER NOT NULL,
-            author_id INTEGER DEFAULT NULL, -- NULL表示随机选择
-            need_review INTEGER DEFAULT 1, -- 是否需要人工审核
-            publish_interval INTEGER DEFAULT 3600, -- 发布间隔（秒）
-            auto_keywords INTEGER DEFAULT 1, -- 自动提取关键词
-            auto_description INTEGER DEFAULT 1, -- 自动生成描述
-            draft_limit INTEGER DEFAULT 10, -- 草稿数量限制
-            is_loop INTEGER DEFAULT 0, -- 是否循环生成
-            status VARCHAR(20) DEFAULT 'active', -- active, paused, completed
-            created_count INTEGER DEFAULT 0, -- 已创建文章数
-            published_count INTEGER DEFAULT 0, -- 已发布文章数
-            loop_count INTEGER DEFAULT 0, -- 循环次数
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY (title_library_id) REFERENCES title_libraries(id),
-            FOREIGN KEY (image_library_id) REFERENCES image_libraries(id),
-            FOREIGN KEY (prompt_id) REFERENCES prompts(id),
-            FOREIGN KEY (ai_model_id) REFERENCES ai_models(id),
-            FOREIGN KEY (author_id) REFERENCES authors(id)
-        );
 
         -- 关键词库表
         CREATE TABLE IF NOT EXISTS keyword_libraries (
@@ -252,29 +168,6 @@ class Database {
             FOREIGN KEY (library_id) REFERENCES image_libraries(id) ON DELETE CASCADE
         );
 
-        -- AI知识库表
-        CREATE TABLE IF NOT EXISTS knowledge_bases (
-            id BIGSERIAL PRIMARY KEY,
-            name VARCHAR(200) NOT NULL,
-            content TEXT NOT NULL,
-            character_count INTEGER DEFAULT 0,
-            used_task_count INTEGER DEFAULT 0, -- 使用的任务数
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        );
-
-        -- 作者库表
-        CREATE TABLE IF NOT EXISTS authors (
-            id BIGSERIAL PRIMARY KEY,
-            name VARCHAR(100) NOT NULL,
-            bio TEXT DEFAULT '',
-            email VARCHAR(100) DEFAULT '',
-            avatar VARCHAR(200) DEFAULT '',
-            website VARCHAR(200) DEFAULT '',
-            social_links TEXT DEFAULT '',
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        );
-
         -- AI模型配置表
         CREATE TABLE IF NOT EXISTS ai_models (
             id BIGSERIAL PRIMARY KEY,
@@ -307,6 +200,113 @@ class Database {
             id BIGSERIAL PRIMARY KEY,
             word VARCHAR(200) NOT NULL UNIQUE,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+
+        -- AI知识库表
+        CREATE TABLE IF NOT EXISTS knowledge_bases (
+            id BIGSERIAL PRIMARY KEY,
+            name VARCHAR(200) NOT NULL,
+            content TEXT NOT NULL,
+            character_count INTEGER DEFAULT 0,
+            used_task_count INTEGER DEFAULT 0, -- 使用的任务数
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+
+        -- 任务表
+        CREATE TABLE IF NOT EXISTS tasks (
+            id BIGSERIAL PRIMARY KEY,
+            name VARCHAR(200) NOT NULL,
+            title_library_id INTEGER NOT NULL,
+            image_library_id INTEGER DEFAULT NULL,
+            image_count INTEGER DEFAULT 0, -- 配图数量
+            prompt_id INTEGER NOT NULL, -- 内容提示词ID
+            ai_model_id INTEGER NOT NULL,
+            author_id INTEGER DEFAULT NULL, -- NULL表示随机选择
+            need_review INTEGER DEFAULT 1, -- 是否需要人工审核
+            publish_interval INTEGER DEFAULT 3600, -- 发布间隔（秒）
+            auto_keywords INTEGER DEFAULT 1, -- 自动提取关键词
+            auto_description INTEGER DEFAULT 1, -- 自动生成描述
+            draft_limit INTEGER DEFAULT 10, -- 草稿数量限制
+            is_loop INTEGER DEFAULT 0, -- 是否循环生成
+            status VARCHAR(20) DEFAULT 'active', -- active, paused, completed
+            created_count INTEGER DEFAULT 0, -- 已创建文章数
+            published_count INTEGER DEFAULT 0, -- 已发布文章数
+            loop_count INTEGER DEFAULT 0, -- 循环次数
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (title_library_id) REFERENCES title_libraries(id),
+            FOREIGN KEY (image_library_id) REFERENCES image_libraries(id),
+            FOREIGN KEY (prompt_id) REFERENCES prompts(id),
+            FOREIGN KEY (ai_model_id) REFERENCES ai_models(id),
+            FOREIGN KEY (author_id) REFERENCES authors(id)
+        );
+
+        -- 文章表（支持AI生成和手动创建）
+        CREATE TABLE IF NOT EXISTS articles (
+            id BIGSERIAL PRIMARY KEY,
+            title VARCHAR(200) NOT NULL,
+            slug VARCHAR(200) UNIQUE NOT NULL,
+            excerpt TEXT DEFAULT '',
+            content TEXT NOT NULL,
+            category_id INTEGER NOT NULL,
+            author_id INTEGER DEFAULT 1,
+            task_id INTEGER DEFAULT NULL, -- 关联的任务ID，NULL表示手动创建
+            original_keyword VARCHAR(200) DEFAULT '', -- 原始关键词
+            keywords TEXT DEFAULT '', -- SEO关键词
+            meta_description TEXT DEFAULT '', -- SEO描述
+            status VARCHAR(20) DEFAULT 'draft', -- draft, published, private, deleted
+            review_status VARCHAR(20) DEFAULT 'pending', -- pending, approved, rejected, auto_approved
+            is_featured INTEGER DEFAULT 0,
+            view_count INTEGER DEFAULT 0,
+            like_count INTEGER DEFAULT 0,
+            comment_count INTEGER DEFAULT 0,
+            is_ai_generated INTEGER DEFAULT 0, -- 是否AI生成
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            published_at TIMESTAMP DEFAULT NULL,
+            deleted_at TIMESTAMP DEFAULT NULL,
+            FOREIGN KEY (category_id) REFERENCES categories(id),
+            FOREIGN KEY (author_id) REFERENCES authors(id),
+            FOREIGN KEY (task_id) REFERENCES tasks(id)
+        );
+
+        -- 文章标签关联表
+        CREATE TABLE IF NOT EXISTS article_tags (
+            id BIGSERIAL PRIMARY KEY,
+            article_id INTEGER NOT NULL,
+            tag_id INTEGER NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (article_id) REFERENCES articles(id) ON DELETE CASCADE,
+            FOREIGN KEY (tag_id) REFERENCES tags(id) ON DELETE CASCADE,
+            UNIQUE(article_id, tag_id)
+        );
+
+        -- 评论表
+        CREATE TABLE IF NOT EXISTS comments (
+            id BIGSERIAL PRIMARY KEY,
+            article_id INTEGER NOT NULL,
+            parent_id INTEGER DEFAULT NULL,
+            author_name VARCHAR(100) NOT NULL,
+            author_email VARCHAR(100) NOT NULL,
+            author_website VARCHAR(200) DEFAULT '',
+            content TEXT NOT NULL,
+            status INTEGER DEFAULT 0, -- 0: 待审核, 1: 已通过, 2: 已拒绝
+            ip_address VARCHAR(45),
+            user_agent TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (article_id) REFERENCES articles(id) ON DELETE CASCADE,
+            FOREIGN KEY (parent_id) REFERENCES comments(id) ON DELETE CASCADE
+        );
+
+        -- 阅读日志表
+        CREATE TABLE IF NOT EXISTS view_logs (
+            id BIGSERIAL PRIMARY KEY,
+            article_id INTEGER,
+            ip_address VARCHAR(45),
+            user_agent TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (article_id) REFERENCES articles(id)
         );
 
         -- 任务调度表
