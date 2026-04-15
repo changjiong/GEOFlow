@@ -6,6 +6,10 @@ services:
       POSTGRES_USER: "${DB_USER:-geo_user}"
       POSTGRES_PASSWORD: "${DB_PASSWORD:-geo_password}"
       TZ: "${TZ:-Asia/Shanghai}"
+    networks:
+      default:
+        aliases:
+          - geoflow-postgres
     volumes:
       - pgdata:/var/lib/postgresql/data
     restart: unless-stopped
@@ -22,7 +26,7 @@ services:
       target: web
     environment:
       DB_DRIVER: "${DB_DRIVER:-pgsql}"
-      DB_HOST: "${DB_HOST:-postgres}"
+      DB_HOST: "${DB_HOST:-geoflow-postgres}"
       DB_PORT: "${DB_PORT:-5432}"
       DB_NAME: "${DB_NAME:-geo_system}"
       DB_USER: "${DB_USER:-geo_user}"
@@ -74,7 +78,7 @@ services:
       target: scheduler
     environment:
       DB_DRIVER: "${DB_DRIVER:-pgsql}"
-      DB_HOST: "${DB_HOST:-postgres}"
+      DB_HOST: "${DB_HOST:-geoflow-postgres}"
       DB_PORT: "${DB_PORT:-5432}"
       DB_NAME: "${DB_NAME:-geo_system}"
       DB_USER: "${DB_USER:-geo_user}"
@@ -102,7 +106,7 @@ services:
     command: ["php", "/var/www/html/bin/worker.php"]
     environment:
       DB_DRIVER: "${DB_DRIVER:-pgsql}"
-      DB_HOST: "${DB_HOST:-postgres}"
+      DB_HOST: "${DB_HOST:-geoflow-postgres}"
       DB_PORT: "${DB_PORT:-5432}"
       DB_NAME: "${DB_NAME:-geo_system}"
       DB_USER: "${DB_USER:-geo_user}"
