@@ -46,16 +46,20 @@ services:
       timeout: 5s
       retries: 3
       start_period: 15s
+    networks:
+      - default
+      - coolify
     labels:
       - traefik.enable=true
+      - traefik.docker.network=coolify
       - traefik.http.middlewares.geoflow-gzip.compress=true
       - traefik.http.middlewares.geoflow-redirect.redirectscheme.scheme=https
       - traefik.http.routers.geoflow-http.entrypoints=http
-      - traefik.http.routers.geoflow-http.rule=Host(`${PUBLIC_DOMAIN:-geo.coey.top}`) && PathPrefix(`/`)
+      - traefik.http.routers.geoflow-http.rule=Host(`geo.coey.top`) && PathPrefix(`/`)
       - traefik.http.routers.geoflow-http.middlewares=geoflow-redirect
       - traefik.http.routers.geoflow-http.service=geoflow-http-svc
       - traefik.http.routers.geoflow-https.entrypoints=https
-      - traefik.http.routers.geoflow-https.rule=Host(`${PUBLIC_DOMAIN:-geo.coey.top}`) && PathPrefix(`/`)
+      - traefik.http.routers.geoflow-https.rule=Host(`geo.coey.top`) && PathPrefix(`/`)
       - traefik.http.routers.geoflow-https.middlewares=geoflow-gzip
       - traefik.http.routers.geoflow-https.service=geoflow-https-svc
       - traefik.http.routers.geoflow-https.tls=true
@@ -122,3 +126,7 @@ volumes:
   geo_data:
   geo_uploads:
   geo_logs:
+
+networks:
+  coolify:
+    external: true
