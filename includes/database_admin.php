@@ -647,10 +647,12 @@ class DatabaseAdmin {
                 'fixed_category_id' => "ALTER TABLE tasks ADD COLUMN fixed_category_id INTEGER DEFAULT NULL",
             ],
             'admins' => [
+                'email' => "ALTER TABLE admins ADD COLUMN email VARCHAR(100) DEFAULT ''",
                 'display_name' => "ALTER TABLE admins ADD COLUMN display_name VARCHAR(100) DEFAULT ''",
                 'role' => "ALTER TABLE admins ADD COLUMN role VARCHAR(20) DEFAULT 'admin'",
                 'status' => "ALTER TABLE admins ADD COLUMN status VARCHAR(20) DEFAULT 'active'",
                 'created_by' => "ALTER TABLE admins ADD COLUMN created_by INTEGER DEFAULT NULL",
+                'last_login' => "ALTER TABLE admins ADD COLUMN last_login TIMESTAMP DEFAULT NULL",
                 'updated_at' => "ALTER TABLE admins ADD COLUMN updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP",
             ],
             'image_libraries' => [
