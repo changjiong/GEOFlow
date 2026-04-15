@@ -1,0 +1,124 @@
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_DB: "${DB_NAME:-geo_system}"
+      POSTGRES_USER: "${DB_USER:-geo_user}"
+      POSTGRES_PASSWORD: "${DB_PASSWORD:-geo_password}"
+      TZ: "${TZ:-Asia/Shanghai}"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-geo_user} -d ${DB_NAME:-geo_system}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  web:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+      target: web
+    environment:
+      DB_DRIVER: "${DB_DRIVER:-pgsql}"
+      DB_HOST: "${DB_HOST:-postgres}"
+      DB_PORT: "${DB_PORT:-5432}"
+      DB_NAME: "${DB_NAME:-geo_system}"
+      DB_USER: "${DB_USER:-geo_user}"
+      DB_PASSWORD: "${DB_PASSWORD:-geo_password}"
+      APP_PORT: 8080
+      SITE_URL: "${SITE_URL:-https://geo.coey.top}"
+      APP_SECRET_KEY: "${APP_SECRET_KEY}"
+      REQUIRE_STRONG_APP_SECRET: "${REQUIRE_STRONG_APP_SECRET:-true}"
+      TZ: "${TZ:-Asia/Shanghai}"
+    volumes:
+      - geo_data:/var/www/html/data
+      - geo_uploads:/var/www/html/uploads
+      - geo_logs:/var/www/html/logs
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8080/"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+    labels:
+      - traefik.enable=true
+      - traefik.http.middlewares.geoflow-gzip.compress=true
+      - traefik.http.middlewares.geoflow-redirect.redirectscheme.scheme=https
+      - traefik.http.routers.geoflow-http.entrypoints=http
+      - traefik.http.routers.geoflow-http.rule=Host(`${PUBLIC_DOMAIN:-geo.coey.top}`) && PathPrefix(`/`)
+      - traefik.http.routers.geoflow-http.middlewares=geoflow-redirect
+      - traefik.http.routers.geoflow-http.service=geoflow-http-svc
+      - traefik.http.routers.geoflow-https.entrypoints=https
+      - traefik.http.routers.geoflow-https.rule=Host(`${PUBLIC_DOMAIN:-geo.coey.top}`) && PathPrefix(`/`)
+      - traefik.http.routers.geoflow-https.middlewares=geoflow-gzip
+      - traefik.http.routers.geoflow-https.service=geoflow-https-svc
+      - traefik.http.routers.geoflow-https.tls=true
+      - traefik.http.routers.geoflow-https.tls.certresolver=letsencrypt
+      - traefik.http.services.geoflow-http-svc.loadbalancer.server.port=8080
+      - traefik.http.services.geoflow-https-svc.loadbalancer.server.port=8080
+
+  scheduler:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+      target: scheduler
+    environment:
+      DB_DRIVER: "${DB_DRIVER:-pgsql}"
+      DB_HOST: "${DB_HOST:-postgres}"
+      DB_PORT: "${DB_PORT:-5432}"
+      DB_NAME: "${DB_NAME:-geo_system}"
+      DB_USER: "${DB_USER:-geo_user}"
+      DB_PASSWORD: "${DB_PASSWORD:-geo_password}"
+      CRON_INTERVAL: "${CRON_INTERVAL:-60}"
+      APP_SECRET_KEY: "${APP_SECRET_KEY}"
+      REQUIRE_STRONG_APP_SECRET: "${REQUIRE_STRONG_APP_SECRET:-true}"
+      TZ: "${TZ:-Asia/Shanghai}"
+    volumes:
+      - geo_data:/var/www/html/data
+      - geo_uploads:/var/www/html/uploads
+      - geo_logs:/var/www/html/logs
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      web:
+        condition: service_healthy
+
+  worker:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+      target: scheduler
+    command: ["php", "/var/www/html/bin/worker.php"]
+    environment:
+      DB_DRIVER: "${DB_DRIVER:-pgsql}"
+      DB_HOST: "${DB_HOST:-postgres}"
+      DB_PORT: "${DB_PORT:-5432}"
+      DB_NAME: "${DB_NAME:-geo_system}"
+      DB_USER: "${DB_USER:-geo_user}"
+      DB_PASSWORD: "${DB_PASSWORD:-geo_password}"
+      APP_SECRET_KEY: "${APP_SECRET_KEY}"
+      REQUIRE_STRONG_APP_SECRET: "${REQUIRE_STRONG_APP_SECRET:-true}"
+      TZ: "${TZ:-Asia/Shanghai}"
+    volumes:
+      - geo_data:/var/www/html/data
+      - geo_uploads:/var/www/html/uploads
+      - geo_logs:/var/www/html/logs
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      web:
+        condition: service_healthy
+
+volumes:
+  pgdata:
+  geo_data:
+  geo_uploads:
+  geo_logs:
