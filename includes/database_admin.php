@@ -793,6 +793,16 @@ class DatabaseAdmin {
                 $this->pdo->exec("ALTER TABLE knowledge_chunks ADD COLUMN embedding_vector vector(3072)");
             }
 
+            $dimensions = $this->getVectorColumnDimensions('knowledge_chunks', 'embedding_vector');
+            if ($dimensions === null) {
+                return;
+            }
+
+            if ($dimensions > 2000) {
+                error_log("pgvector HNSW skipped for knowledge_chunks.embedding_vector: {$dimensions} dimensions exceed 2000 limit");
+                return;
+            }
+
             $this->pdo->exec("
                 CREATE INDEX IF NOT EXISTS idx_knowledge_chunks_embedding_hnsw
                 ON knowledge_chunks
@@ -802,6 +812,29 @@ class DatabaseAdmin {
         } catch (Throwable $e) {
             error_log('pgvector 向量列或索引初始化失败: ' . $e->getMessage());
         }
+    }
+
+    private function getVectorColumnDimensions(string $table, string $column): ?int {
+        $stmt = $this->pdo->prepare("
+            SELECT format_type(a.atttypid, a.atttypmod)
+            FROM pg_attribute a
+            INNER JOIN pg_class c ON c.oid = a.attrelid
+            INNER JOIN pg_namespace n ON n.oid = c.relnamespace
+            WHERE n.nspname = current_schema()
+              AND c.relname = ?
+              AND a.attname = ?
+              AND a.attnum > 0
+              AND NOT a.attisdropped
+            LIMIT 1
+        ");
+        $stmt->execute([$table, $column]);
+
+        $typeDefinition = (string) ($stmt->fetchColumn() ?: '');
+        if (!preg_match('/^vector\((\d+)\)$/', $typeDefinition, $matches)) {
+            return null;
+        }
+
+        return (int) $matches[1];
     }
 }
 

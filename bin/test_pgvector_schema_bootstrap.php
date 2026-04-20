@@ -21,7 +21,11 @@ $host = getenv('TEST_DB_HOST') ?: '127.0.0.1';
 $port = getenv('TEST_DB_PORT') ?: '5432';
 $user = getenv('TEST_DB_USER') ?: 'geo_user';
 $password = getenv('TEST_DB_PASSWORD') ?: 'geo_password';
-$testDb = 'compat_admin_' . bin2hex(random_bytes(4));
+$testDb = 'pgvector_bootstrap_' . bin2hex(random_bytes(4));
+$logFile = sys_get_temp_dir() . '/geoflow-pgvector-bootstrap-' . bin2hex(random_bytes(4)) . '.log';
+
+ini_set('log_errors', '1');
+ini_set('error_log', $logFile);
 
 $adminPdo = new PDO(
     "pgsql:host={$host};port={$port};dbname=postgres",
@@ -42,9 +46,12 @@ try {
     putenv("DB_NAME={$testDb}");
     putenv("DB_USER={$user}");
     putenv("DB_PASSWORD={$password}");
-    putenv('APP_SECRET_KEY=test-secret-key-for-compatibility');
+    putenv('APP_SECRET_KEY=test-secret-key-for-pgvector-bootstrap');
     putenv('SITE_URL=http://localhost');
     putenv('TZ=Asia/Shanghai');
+
+    require_once __DIR__ . '/../includes/db_support.php';
+    require_once __DIR__ . '/../includes/database_admin.php';
 
     $pdo = new PDO(
         "pgsql:host={$host};port={$port};dbname={$testDb}",
@@ -56,21 +63,6 @@ try {
         ]
     );
 
-    // Simulate a legacy admins table created before role/status/last_login compatibility fields existed.
-    $pdo->exec("
-        CREATE TABLE admins (
-            id BIGSERIAL PRIMARY KEY,
-            username VARCHAR(50) UNIQUE NOT NULL,
-            password VARCHAR(255) NOT NULL,
-            display_name VARCHAR(100) DEFAULT '',
-            email VARCHAR(100) DEFAULT '',
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        )
-    ");
-
-    require_once __DIR__ . '/../includes/db_support.php';
-    require_once __DIR__ . '/../includes/database_admin.php';
-
     $refClass = new ReflectionClass(DatabaseAdmin::class);
     $instanceProp = $refClass->getProperty('instance');
     $instanceProp->setAccessible(true);
@@ -78,13 +70,18 @@ try {
 
     DatabaseAdmin::getInstance();
 
-    assertTrue(db_column_exists($pdo, 'admins', 'role'), 'expected admins.role to exist');
-    assertTrue(db_column_exists($pdo, 'admins', 'status'), 'expected admins.status to exist');
-    assertTrue(db_column_exists($pdo, 'admins', 'updated_at'), 'expected admins.updated_at to exist');
-    assertTrue(db_column_exists($pdo, 'admins', 'last_login'), 'expected admins.last_login to exist');
+    assertTrue(db_column_exists($pdo, 'knowledge_chunks', 'embedding_vector'), 'expected knowledge_chunks.embedding_vector to exist');
+
+    $logContent = file_exists($logFile) ? (string) file_get_contents($logFile) : '';
+    assertTrue(!str_contains($logContent, 'pgvector 向量列或索引初始化失败'), 'expected pgvector bootstrap to avoid index initialization errors');
+    assertTrue(!str_contains($logContent, 'column cannot have more than 2000 dimensions for hnsw index'), 'expected no HNSW dimension error');
 } finally {
     if (isset($pdo)) {
         $pdo = null;
+    }
+
+    if (file_exists($logFile)) {
+        unlink($logFile);
     }
 
     $adminPdo->exec("SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = '{$testDb}'");
